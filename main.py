@@ -3,8 +3,8 @@ from bs4 import BeautifulSoup
 import schedule
 import time
 import datetime
-from telegram import Bot
 import asyncio
+from telegram import Bot
 
 # 🔐 اطلاعات ربات تلگرام
 TOKEN = "7735514571:AAFwhrv2wb3GHkAZtI-BATc-D95G6hidcrc"
@@ -47,12 +47,11 @@ async def send_price_to_telegram():
         else:
             message = "❌ خطا در دریافت قیمت طلا یا تتر. لطفاً بعداً دوباره تلاش کنید."
 
-        # استفاده از await برای ارسال پیام
         await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
 
 # ⏰ زمان‌بندی هر ۳۰ دقیقه بین ساعت ۸ تا ۲۲
 def job():
-    asyncio.run(send_price_to_telegram())
+    asyncio.create_task(send_price_to_telegram())
 
 schedule.every(2).minutes.do(job)
 
