@@ -4,6 +4,7 @@ import schedule
 import time
 import datetime
 from telegram import Bot
+import asyncio
 
 # 🔐 اطلاعات ربات تلگرام
 TOKEN = "7735514571:AAFwhrv2wb3GHkAZtI-BATc-D95G6hidcrc"
@@ -30,7 +31,7 @@ def get_prices():
         return None, None
 
 # ✉️ تابع ارسال پیام تلگرام با فرمت شیک
-def send_price_to_telegram():
+async def send_price_to_telegram():
     now = datetime.datetime.now()
     if 8 <= now.hour < 22:
         gold, tether = get_prices()
@@ -46,13 +47,17 @@ def send_price_to_telegram():
         else:
             message = "❌ خطا در دریافت قیمت طلا یا تتر. لطفاً بعداً دوباره تلاش کنید."
 
-        bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
+        # استفاده از await برای ارسال پیام
+        await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
 
 # ⏰ زمان‌بندی هر ۳۰ دقیقه بین ساعت ۸ تا ۲۲
-schedule.every(2).minutes.do(send_price_to_telegram)
+def job():
+    asyncio.run(send_price_to_telegram())
+
+schedule.every(2).minutes.do(job)
 
 # 🚀 اجرای اولیه برای تست سریع
-send_price_to_telegram()
+asyncio.run(send_price_to_telegram())
 
 # 🔁 حلقه‌ی بررسی زمان‌بندی
 while True:
