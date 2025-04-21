@@ -1,64 +1,60 @@
-import time
-import threading
-from flask import Flask
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+import schedule
+import time
+import datetime
 from telegram import Bot
 
-# توکن و چت آیدی تلگرام
+# 🔐 اطلاعات ربات تلگرام
 TOKEN = "7735514571:AAFwhrv2wb3GHkAZtI-BATc-D95G6hidcrc"
 CHAT_ID = "593043026"
 bot = Bot(token=TOKEN)
 
-# تابع برای دریافت قیمت طلا و تتر از سایت tala.ir
+# 📊 تابع دریافت قیمت طلا و تتر از tala.ir
 def get_prices():
     try:
-        response = requests.get("https://www.tala.ir/")
+        url = "https://www.tala.ir/"
+        headers = {"User-Agent": "Mozilla/5.0"}
+        response = requests.get(url, headers=headers)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        gold_tag = soup.find("li", {"id": "lSeque_0_0"})
-        gold_price = gold_tag.find("span", class_="info").text.strip()
+        gold_element = soup.find("li", {"id": "l-1"})
+        tether_element = soup.find("li", {"id": "l-41"})
 
-        tether_tag = soup.find("li", {"id": "lSeque_0_6"})
-        tether_price = tether_tag.find("span", class_="info").text.strip()
+        gold_price = gold_element.find("span", {"class": "nl"}).text.strip()
+        tether_price = tether_element.find("span", {"class": "nl"}).text.strip()
 
         return gold_price, tether_price
+
     except Exception as e:
         return None, None
 
-# تابعی برای ارسال پیام به تلگرام
-def send_telegram_message(text):
-    try:
-        bot.send_message(chat_id=CHAT_ID, text=text)
-    except Exception as e:
-        print("Error sending message:", e)
-
-# تابع اصلی برای اجرا در پس‌زمینه
-def start_bot_loop():
-    while True:
-        now = datetime.now()
-        current_hour = now.hour
-        if 8 <= current_hour <= 22:
-            gold, tether = get_prices()
-            if gold and tether:
-                msg = f"💰 قیمت طلا ۱۸ عیار: {gold} تومان\n💵 قیمت تتر: {tether} تومان\n🕒 {now.strftime('%H:%M')}"
-                send_telegram_message(msg)
-            else:
-                print("❌ خطا در دریافت قیمت‌ها")
+# ✉️ تابع ارسال پیام تلگرام با فرمت شیک
+def send_price_to_telegram():
+    now = datetime.datetime.now()
+    if 8 <= now.hour < 22:
+        gold, tether = get_prices()
+        if gold and tether:
+            message = (
+                "📢 *گزارش لحظه‌ای قیمت‌ها*\n"
+                f"🕰 ساعت: {now.strftime('%H:%M')}  |  📅 تاریخ: {now.strftime('%Y/%m/%d')}\n\n"
+                f"🏆 *طلای ۱۸ عیار:* `{gold}` تومان\n"
+                f"💵 *تتر (USDT):* `{tether}` تومان\n\n"
+                "📡 اطلاعات دریافت‌شده از [tala.ir](https://www.tala.ir/)\n"
+                "♻️ بروزرسانی خودکار هر ۳۰ دقیقه"
+            )
         else:
-            print("⏰ خارج از ساعت مجاز ارسال پیام")
-        time.sleep(1800)  # 30 دقیقه
+            message = "❌ خطا در دریافت قیمت طلا یا تتر. لطفاً بعداً دوباره تلاش کنید."
 
-# اجرای حلقه در ترد جدا
-threading.Thread(target=start_bot_loop).start()
+        bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
 
-# وب سرور ساده برای فعال موندن Render
-app = Flask(__name__)
+# ⏰ زمان‌بندی هر ۳۰ دقیقه بین ساعت ۸ تا ۲۲
+schedule.every(2).minutes.do(send_price_to_telegram)
 
-@app.route("/")
-def home():
-    return "✅ Bot is running..."
+# 🚀 اجرای اولیه برای تست سریع
+send_price_to_telegram()
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+# 🔁 حلقه‌ی بررسی زمان‌بندی
+while True:
+    schedule.run_pending()
+    time.sleep(1)
