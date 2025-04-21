@@ -17,18 +17,33 @@ def get_prices():
         url = "https://www.tala.ir/"
         headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers)
+
+        if response.status_code != 200:
+            print(f"⛔️ خطا در دریافت سایت: کد وضعیت {response.status_code}")
+            return None, None
+
         soup = BeautifulSoup(response.text, "html.parser")
 
         gold_element = soup.find("li", {"id": "l-1"})
         tether_element = soup.find("li", {"id": "l-41"})
 
-        gold_price = gold_element.find("span", {"class": "nl"}).text.strip()
-        tether_price = tether_element.find("span", {"class": "nl"}).text.strip()
+        if not gold_element or not tether_element:
+            print("⛔️ المنت‌های قیمت طلا یا تتر پیدا نشدند.")
+            return None, None
 
-        return gold_price, tether_price
+        gold_price = gold_element.find("span", {"class": "nl"})
+        tether_price = tether_element.find("span", {"class": "nl"})
+
+        if not gold_price or not tether_price:
+            print("⛔️ قیمت داخل span پیدا نشد.")
+            return None, None
+
+        return gold_price.text.strip(), tether_price.text.strip()
 
     except Exception as e:
+        print(f"❌ خطای کلی در get_prices: {e}")
         return None, None
+
 
 # ✉️ تابع ارسال پیام تلگرام با فرمت شیک
 async def send_price_to_telegram():
