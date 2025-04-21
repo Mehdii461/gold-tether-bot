@@ -1,67 +1,64 @@
+from flask import Flask, jsonify
 import requests
 from bs4 import BeautifulSoup
 import schedule
 import time
+import threading
 import datetime
+import logging
 from telegram import Bot
-import asyncio
 
-# 🔐 اطلاعات ربات تلگرام
+# تنظیمات تلگرام
 TOKEN = "7735514571:AAFwhrv2wb3GHkAZtI-BATc-D95G6hidcrc"
 CHAT_ID = "593043026"
 bot = Bot(token=TOKEN)
 
-# 📊 دریافت قیمت تتر از نوبیتکس
-def get_tether_price():
-    try:
-        url = "https://api.nobitex.ir/market/stats/"
-        data = {"srcCurrency": "usdt", "dstCurrency": "rls"}
-        response = requests.post(url, data=data)
-        price = response.json()["stats"]["usdt-rls"]["latest"]
-        return f"{int(price):,}"
-    except Exception:
-        return None
+app = Flask(__name__)
 
-# 📊 دریافت قیمت طلای ۱۸ عیار از سایت میهن‌سیگنال
-def get_gold_price():
+def fetch_prices():
     try:
-        url = "https://mihansignal.com/gold/"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.text, "html.parser")
-        gold_price = soup.find("td", text="طلای 18 عیار").find_next("td").text.strip()
-        return gold_price
-    except Exception:
-        return None
+        response = requests.get("https://www.tala.ir/")
+        soup = BeautifulSoup(response.content, "html.parser")
+        
+        gold_price = soup.find("td", string="طلای 18 عیار").find_next("td").text.strip()
+        tether_price = soup.find("td", string="تتر").find_next("td").text.strip()
 
-# ✉️ تابع ارسال پیام به تلگرام
-async def send_price_to_telegram():
+        return gold_price, tether_price
+    except Exception as e:
+        print(f"خطا در دریافت قیمت: {e}")
+        return None, None
+
+def send_price_to_telegram():
     now = datetime.datetime.now()
     if 8 <= now.hour < 22:
-        gold = get_gold_price()
-        tether = get_tether_price()
-
-        if gold and tether:
-            message = (
-                "📢 *گزارش لحظه‌ای قیمت‌ها*\n"
-                f"🕰 ساعت: {now.strftime('%H:%M')}  |  📅 تاریخ: {now.strftime('%Y/%m/%d')}\n\n"
-                f"🏆 *طلای ۱۸ عیار:* `{gold}` تومان\n"
-                f"💵 *تتر (USDT):* `{tether}` تومان\n\n"
-                "📡 اطلاعات از میهن‌سیگنال و نوبیتکس\n"
-                "♻️ بروزرسانی خودکار هر ۳۰ دقیقه"
-            )
+        gold_price, tether_price = fetch_prices()
+        if gold_price and tether_price:
+            message = f"💰 قیمت لحظه‌ای:\n\n🔸 طلای 18 عیار: {gold_price}\n🔹 تتر: {tether_price}"
         else:
             message = "❌ خطا در دریافت قیمت طلا یا تتر. لطفاً بعداً دوباره تلاش کنید."
+        bot.send_message(chat_id=CHAT_ID, text=message)
 
-        await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
+# زمان‌بندی هر ۳۰ دقیقه
+schedule.every(2).minutes.do(send_price_to_telegram)
 
-# 📅 زمان‌بندی ارسال پیام
-def job():
-    asyncio.run(send_price_to_telegram())
+def run_schedule():
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
-schedule.every(2).minutes.do(job)
-job()  # اجرای فوری
+# راه‌اندازی در یک ترد جدا
+threading.Thread(target=run_schedule, daemon=True).start()
 
-while True:
-    schedule.run_pending()
-    time.sleep(1)
+# روت اصلی برای تست زنده بودن سرور
+@app.route('/')
+def index():
+    return '💡 ربات قیمت طلا و تتر فعال است.'
+
+# روت برای ارسال دستی قیمت‌ها
+@app.route('/send-now', methods=['GET'])
+def send_now():
+    send_price_to_telegram()
+    return jsonify({'status': 'ok', 'message': 'قیمت به تلگرام ارسال شد.'})
+
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=10000)
