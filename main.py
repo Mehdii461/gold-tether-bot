@@ -3,60 +3,51 @@ from bs4 import BeautifulSoup
 import schedule
 import time
 import datetime
-import asyncio
 from telegram import Bot
+import asyncio
 
 # 🔐 اطلاعات ربات تلگرام
 TOKEN = "7735514571:AAFwhrv2wb3GHkAZtI-BATc-D95G6hidcrc"
 CHAT_ID = "593043026"
 bot = Bot(token=TOKEN)
 
-# 📊 تابع دریافت قیمت طلا و تتر از tala.ir
-def get_prices():
+# 📊 دریافت قیمت تتر از نوبیتکس
+def get_tether_price():
     try:
-        url = "https://www.tala.ir/"
+        url = "https://api.nobitex.ir/market/stats/"
+        data = {"srcCurrency": "usdt", "dstCurrency": "rls"}
+        response = requests.post(url, data=data)
+        price = response.json()["stats"]["usdt-rls"]["latest"]
+        return f"{int(price):,}"
+    except Exception:
+        return None
+
+# 📊 دریافت قیمت طلای ۱۸ عیار از سایت میهن‌سیگنال
+def get_gold_price():
+    try:
+        url = "https://mihansignal.com/gold/"
         headers = {"User-Agent": "Mozilla/5.0"}
         response = requests.get(url, headers=headers)
-
-        if response.status_code != 200:
-            print(f"⛔️ خطا در دریافت سایت: کد وضعیت {response.status_code}")
-            return None, None
-
         soup = BeautifulSoup(response.text, "html.parser")
+        gold_price = soup.find("td", text="طلای 18 عیار").find_next("td").text.strip()
+        return gold_price
+    except Exception:
+        return None
 
-        gold_element = soup.find("li", {"id": "l-1"})
-        tether_element = soup.find("li", {"id": "l-41"})
-
-        if not gold_element or not tether_element:
-            print("⛔️ المنت‌های قیمت طلا یا تتر پیدا نشدند.")
-            return None, None
-
-        gold_price = gold_element.find("span", {"class": "nl"})
-        tether_price = tether_element.find("span", {"class": "nl"})
-
-        if not gold_price or not tether_price:
-            print("⛔️ قیمت داخل span پیدا نشد.")
-            return None, None
-
-        return gold_price.text.strip(), tether_price.text.strip()
-
-    except Exception as e:
-        print(f"❌ خطای کلی در get_prices: {e}")
-        return None, None
-
-
-# ✉️ تابع ارسال پیام تلگرام با فرمت شیک
+# ✉️ تابع ارسال پیام به تلگرام
 async def send_price_to_telegram():
     now = datetime.datetime.now()
     if 8 <= now.hour < 22:
-        gold, tether = get_prices()
+        gold = get_gold_price()
+        tether = get_tether_price()
+
         if gold and tether:
             message = (
                 "📢 *گزارش لحظه‌ای قیمت‌ها*\n"
                 f"🕰 ساعت: {now.strftime('%H:%M')}  |  📅 تاریخ: {now.strftime('%Y/%m/%d')}\n\n"
                 f"🏆 *طلای ۱۸ عیار:* `{gold}` تومان\n"
                 f"💵 *تتر (USDT):* `{tether}` تومان\n\n"
-                "📡 اطلاعات دریافت‌شده از [tala.ir](https://www.tala.ir/)\n"
+                "📡 اطلاعات از میهن‌سیگنال و نوبیتکس\n"
                 "♻️ بروزرسانی خودکار هر ۳۰ دقیقه"
             )
         else:
@@ -64,16 +55,13 @@ async def send_price_to_telegram():
 
         await bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown")
 
-# ⏰ زمان‌بندی هر ۳۰ دقیقه بین ساعت ۸ تا ۲۲
+# 📅 زمان‌بندی ارسال پیام
 def job():
-    asyncio.create_task(send_price_to_telegram())
+    asyncio.run(send_price_to_telegram())
 
 schedule.every(2).minutes.do(job)
+job()  # اجرای فوری
 
-# 🚀 اجرای اولیه برای تست سریع
-asyncio.run(send_price_to_telegram())
-
-# 🔁 حلقه‌ی بررسی زمان‌بندی
 while True:
     schedule.run_pending()
     time.sleep(1)
