@@ -17,11 +17,17 @@ app = Flask(__name__)
 
 def fetch_prices():
     try:
-        response = requests.get("https://www.tala.ir/")
-        soup = BeautifulSoup(response.content, "html.parser")
-        
-        gold_price = soup.find("td", string="طلای 18 عیار").find_next("td").text.strip()
-        tether_price = soup.find("td", string="تتر").find_next("td").text.strip()
+        # دریافت قیمت طلا از tala.ir
+        response_gold = requests.get("https://www.tala.ir/")
+        soup_gold = BeautifulSoup(response_gold.content, "html.parser")
+        gold_td = soup_gold.find("td", string="طلای 18 عیار")
+        gold_price = gold_td.find_next("td").text.strip() if gold_td else None
+
+        # دریافت قیمت تتر از arzdigital
+        response_tether = requests.get("https://arzdigital.com/price/tether/")
+        soup_tether = BeautifulSoup(response_tether.content, "html.parser")
+        tether_div = soup_tether.find("div", class_="price")
+        tether_price = tether_div.text.strip() if tether_div else None
 
         return gold_price, tether_price
     except Exception as e:
@@ -38,7 +44,7 @@ def send_price_to_telegram():
             message = "❌ خطا در دریافت قیمت طلا یا تتر. لطفاً بعداً دوباره تلاش کنید."
         bot.send_message(chat_id=CHAT_ID, text=message)
 
-# زمان‌بندی هر ۳۰ دقیقه
+# زمان‌بندی هر ۳۰ دقیقه (برای تست موقتاً هر 2 دقیقه)
 schedule.every(2).minutes.do(send_price_to_telegram)
 
 def run_schedule():
