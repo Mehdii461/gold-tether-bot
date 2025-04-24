@@ -16,20 +16,21 @@ app = Flask(__name__)
 
 def fetch_prices():
     try:
-        response = requests.get("https://www.tala.ir/")
-        soup = BeautifulSoup(response.content, "html.parser")
-
-        # دریافت قیمت طلای ۱۸ عیار
-        gold_td = soup.find("td", string="طلای 18 عیار")
+        # دریافت قیمت طلا از tala.ir
+        response_gold = requests.get("https://www.tala.ir/")
+        soup_gold = BeautifulSoup(response_gold.content, "html.parser")
+        gold_td = soup_gold.find("td", string="طلای 18 عیار")
         gold_price = gold_td.find_next("td").text.strip() if gold_td else None
 
-        # دریافت قیمت تتر (جستجو بر اساس رشته "تتر")
-        tether_td = soup.find("td", string="تتر")
+        # دریافت قیمت تتر از tala.ir
+        response_tether = requests.get("https://www.tala.ir/")
+        soup_tether = BeautifulSoup(response_tether.content, "html.parser")
+        tether_td = soup_tether.find("td", string="تتر")
         tether_price = tether_td.find_next("td").text.strip() if tether_td else None
 
         return gold_price, tether_price
     except Exception as e:
-        print(f"❌ خطا در دریافت قیمت: {e}")
+        print(f"خطا در دریافت قیمت: {e}")
         return None, None
 
 def send_price_to_telegram():
@@ -42,7 +43,7 @@ def send_price_to_telegram():
             message = "❌ خطا در دریافت قیمت طلا یا تتر. لطفاً بعداً دوباره تلاش کنید."
         bot.send_message(chat_id=CHAT_ID, text=message)
 
-# زمان‌بندی ارسال پیام هر ۳۰ دقیقه (برای تست فعلاً ۲ دقیقه)
+# زمان‌بندی هر ۳۰ دقیقه (برای تست موقتاً هر 2 دقیقه)
 schedule.every(2).minutes.do(send_price_to_telegram)
 
 def run_schedule():
@@ -50,13 +51,13 @@ def run_schedule():
         schedule.run_pending()
         time.sleep(1)
 
-# اجرای زمان‌بندی در یک ترد جدا
+# راه‌اندازی در یک ترد جدا
 threading.Thread(target=run_schedule, daemon=True).start()
 
-# روت اصلی برای بررسی آنلاین بودن ربات
+# روت اصلی برای تست زنده بودن سرور
 @app.route('/')
 def index():
-    return '✅ ربات قیمت طلا و تتر از tala.ir فعال است.'
+    return '💡 ربات قیمت طلا و تتر فعال است.'
 
 # روت برای ارسال دستی قیمت‌ها
 @app.route('/send-now', methods=['GET'])
