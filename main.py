@@ -5,7 +5,6 @@ import schedule
 import time
 import threading
 import datetime
-import logging
 from telegram import Bot
 
 # تنظیمات تلگرام
@@ -17,17 +16,16 @@ app = Flask(__name__)
 
 def fetch_prices():
     try:
-        # دریافت قیمت طلا از tala.ir
-        response_gold = requests.get("https://www.tala.ir/")
-        soup_gold = BeautifulSoup(response_gold.content, "html.parser")
-        gold_td = soup_gold.find("td", string="طلای 18 عیار")
+        response = requests.get("https://www.tala.ir/")
+        soup = BeautifulSoup(response.content, "html.parser")
+        
+        # دریافت قیمت طلا
+        gold_td = soup.find("td", string="طلای 18 عیار")
         gold_price = gold_td.find_next("td").text.strip() if gold_td else None
 
-        # دریافت قیمت تتر از arzdigital
-        response_tether = requests.get("https://arzdigital.com/price/tether/")
-        soup_tether = BeautifulSoup(response_tether.content, "html.parser")
-        tether_div = soup_tether.find("div", class_="price")
-        tether_price = tether_div.text.strip() if tether_div else None
+        # دریافت قیمت تتر
+        tether_td = soup.find("td", string="تتر")
+        tether_price = tether_td.find_next("td").text.strip() if tether_td else None
 
         return gold_price, tether_price
     except Exception as e:
@@ -39,12 +37,12 @@ def send_price_to_telegram():
     if 8 <= now.hour < 22:
         gold_price, tether_price = fetch_prices()
         if gold_price and tether_price:
-            message = f"💰 قیمت لحظه‌ای:\n\n🔸 طلای 18 عیار: {gold_price}\n🔹 تتر: {tether_price}"
+            message = f"💰 قیمت لحظه‌ای از tala.ir:\n\n🔸 طلای 18 عیار: {gold_price}\n🔹 تتر: {tether_price}"
         else:
             message = "❌ خطا در دریافت قیمت طلا یا تتر. لطفاً بعداً دوباره تلاش کنید."
         bot.send_message(chat_id=CHAT_ID, text=message)
 
-# زمان‌بندی هر ۳۰ دقیقه (برای تست موقتاً هر 2 دقیقه)
+# زمان‌بندی هر ۲ دقیقه برای تست (بعداً کنش به ۳۰ دقیقه)
 schedule.every(2).minutes.do(send_price_to_telegram)
 
 def run_schedule():
@@ -52,13 +50,13 @@ def run_schedule():
         schedule.run_pending()
         time.sleep(1)
 
-# راه‌اندازی در یک ترد جدا
+# اجرای زمان‌بندی در ترد جدا
 threading.Thread(target=run_schedule, daemon=True).start()
 
-# روت اصلی برای تست زنده بودن سرور
+# روت اصلی برای بررسی فعال بودن ربات
 @app.route('/')
 def index():
-    return '💡 ربات قیمت طلا و تتر فعال است.'
+    return '💡 ربات قیمت طلا و تتر از tala.ir فعال است.'
 
 # روت برای ارسال دستی قیمت‌ها
 @app.route('/send-now', methods=['GET'])
