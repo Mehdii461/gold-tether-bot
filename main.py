@@ -14,7 +14,7 @@ bot = Bot(token=TOKEN)
 
 app = Flask(__name__)
 
-ddef fetch_prices():
+def fetch_prices():
     try:
         url = "https://www.tala.ir"
         response = requests.get(url)
