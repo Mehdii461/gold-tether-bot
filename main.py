@@ -14,24 +14,28 @@ bot = Bot(token=TOKEN)
 
 app = Flask(__name__)
 
-def fetch_prices():
+ddef fetch_prices():
     try:
         url = "https://www.tala.ir"
         response = requests.get(url)
         soup = BeautifulSoup(response.content, "html.parser")
 
-        # یافتن قیمت طلا 18 عیار
-        gold_td = soup.find("td", string=lambda text: text and "طلا 18" in text)
-        gold_price = gold_td.find_next("td").text.strip() if gold_td else None
+        print("---- Debugging all TDs ----")
+        all_tds = soup.find_all("td")
+        for td in all_tds:
+            print(td.text.strip())
 
-        # یافتن قیمت تتر
+        gold_td = soup.find("td", string=lambda text: text and "طلا 18" in text)
         tether_td = soup.find("td", string=lambda text: text and "تتر" in text)
+
+        gold_price = gold_td.find_next("td").text.strip() if gold_td else None
         tether_price = tether_td.find_next("td").text.strip() if tether_td else None
 
         return gold_price, tether_price
     except Exception as e:
         print(f"خطا: {e}")
         return None, None
+
 
 def send_price_to_telegram():
     now = datetime.datetime.now()
