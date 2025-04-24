@@ -20,21 +20,35 @@ def fetch_prices():
         response = requests.get(url)
         soup = BeautifulSoup(response.content, "html.parser")
 
+        # لاگ برای بررسی اینکه آیا سایت درست لود شده یا نه
+        print(f"Response status code: {response.status_code}")
+
+        # بررسی همه تگ‌های td
         print("---- Debugging all TDs ----")
         all_tds = soup.find_all("td")
         for td in all_tds:
             print(td.text.strip())
 
+        # جستجو برای قیمت طلا و تتر
         gold_td = soup.find("td", string=lambda text: text and "طلا 18" in text)
         tether_td = soup.find("td", string=lambda text: text and "تتر" in text)
 
-        gold_price = gold_td.find_next("td").text.strip() if gold_td else None
-        tether_price = tether_td.find_next("td").text.strip() if tether_td else None
+        # اگر قیمت‌ها پیدا نشدند، پیام خطا داده خواهد شد
+        if gold_td:
+            gold_price = gold_td.find_next("td").text.strip()
+        else:
+            print("طلا 18 عیار پیدا نشد.")
+
+        if tether_td:
+            tether_price = tether_td.find_next("td").text.strip()
+        else:
+            print("تتر پیدا نشد.")
 
         return gold_price, tether_price
     except Exception as e:
         print(f"خطا: {e}")
         return None, None
+
 
 
 def send_price_to_telegram():
