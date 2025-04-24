@@ -23,13 +23,13 @@ def fetch_prices():
         # لاگ برای بررسی اینکه آیا سایت درست لود شده یا نه
         print(f"Response status code: {response.status_code}")
 
-        # بررسی همه تگ‌های td
-        print("---- Debugging all TDs ----")
+        # بررسی همه تگ‌های td برای تشخیص ساختار جدید
         all_tds = soup.find_all("td")
         for td in all_tds:
             print(td.text.strip())
 
         # جستجو برای قیمت طلا و تتر
+        # (با توجه به ساختار سایت، ممکنه کد زیر نیاز به تغییر داشته باشه)
         gold_td = soup.find("td", string=lambda text: text and "طلا 18" in text)
         tether_td = soup.find("td", string=lambda text: text and "تتر" in text)
 
@@ -37,19 +37,17 @@ def fetch_prices():
         if gold_td:
             gold_price = gold_td.find_next("td").text.strip()
         else:
-            print("طلا 18 عیار پیدا نشد.")
+            gold_price = "طلا 18 عیار پیدا نشد."
 
         if tether_td:
             tether_price = tether_td.find_next("td").text.strip()
         else:
-            print("تتر پیدا نشد.")
+            tether_price = "تتر پیدا نشد."
 
         return gold_price, tether_price
     except Exception as e:
         print(f"خطا: {e}")
         return None, None
-
-
 
 def send_price_to_telegram():
     now = datetime.datetime.now()
